@@ -2155,15 +2155,22 @@ app_info_map_pids (XdpAppInfo  *app_info,
     {
       for (int i = 0; i < n_pids; i++)
         {
-          XdpAppInfo *info = xdp_get_app_info_from_pid(pids[i], error);
-          if (strcmp(info->id, app_info->id) != 0 || info->kind != app_info->kind)
+          g_autoptr(GError) local_error = NULL;
+          XdpAppInfo *info = xdp_get_app_info_from_pid (pids[i], &local_error);
+          if (!info)
+            {
+              g_propagate_prefixed_error (error, g_steal_pointer (&local_error),
+                                          "Can't find app for pid %i: ", pids[i]);
+              return FALSE;
+            }
+
+          if (info->kind != app_info->kind || g_strcmp0 (info->id, app_info->id) != 0)
             {
               g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED,
-                                   "App info of pids do not match.");
+                                   "App info from pid does not match.");
               return FALSE;
             }
         }
-
       return TRUE;
     }
   else if (app_info->kind != XDP_APP_INFO_KIND_FLATPAK)
